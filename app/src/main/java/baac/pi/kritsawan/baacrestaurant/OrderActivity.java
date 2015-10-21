@@ -1,5 +1,9 @@
 package baac.pi.kritsawan.baacrestaurant;
 
+import android.app.AlertDialog;
+import android.content.DialogInterface;
+import android.os.StrictMode;
+import android.preference.DialogPreference;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.view.View;
@@ -8,6 +12,16 @@ import android.widget.ArrayAdapter;
 import android.widget.ListView;
 import android.widget.Spinner;
 import android.widget.TextView;
+import android.widget.Toast;
+
+import org.apache.http.NameValuePair;
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.entity.UrlEncodedFormEntity;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.message.BasicNameValuePair;
+
+import java.util.ArrayList;
 
 public class OrderActivity extends AppCompatActivity {
 
@@ -39,12 +53,82 @@ public class OrderActivity extends AppCompatActivity {
     private void createListView() {
 
         FoodTABLE objFoodTABLE = new FoodTABLE(this);
-        String[] strFood = objFoodTABLE.readAllData(0);
+        final String[] strFood = objFoodTABLE.readAllData(0);
         String[] strSource = objFoodTABLE.readAllData(1);
         String[] strPrice = objFoodTABLE.readAllData(2);
 
         MyAdapter objMyAdapter = new MyAdapter(OrderActivity.this, strSource, strFood, strPrice);
         foodListView.setAdapter(objMyAdapter);
+        foodListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
+                foodString = strFood[i];
+                chooseItem(strFood[i]);
+            }
+        });
+    }
+
+    private void chooseItem(String strFood) {//เลือกตัวล่าง
+        CharSequence[] objCharSequences = {"1 Set", "2 Set", "3 Set", "4 Set", "5 Set",};
+        AlertDialog.Builder objBuilder = new AlertDialog.Builder(this);
+        objBuilder.setTitle(strFood);
+        objBuilder.setSingleChoiceItems(objCharSequences, -1, new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialogInterface, int i) {
+                itemString = Integer.toString(i + 1);
+                uploadToMySQL();
+                dialogInterface.dismiss();
+            }
+        });
+        objBuilder.show();
+    }
+
+    private void uploadToMySQL() {//เลือกตัวล่าง
+        AlertDialog.Builder objBuilder = new AlertDialog.Builder(this);
+        objBuilder.setTitle("Officer ===> " + officerString);
+        objBuilder.setMessage("Food = " + foodString + "\n"
+                + "Item = " + itemString + "\n"
+                + "Desk = " + deskString);
+        objBuilder.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialogInterface, int i) {
+                dialogInterface.dismiss();
+            }
+        });
+        objBuilder.setPositiveButton("OK", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialogInterface, int i) {
+                postNewOrder();//เลือกตัวล่าง
+                dialogInterface.dismiss();
+            }
+        });
+        objBuilder.show();
+    }
+
+    private void postNewOrder() {
+        StrictMode.ThreadPolicy myPolicy = new StrictMode.ThreadPolicy.Builder().permitAll().build();
+        StrictMode.setThreadPolicy(myPolicy);
+        try {
+
+            ArrayList<NameValuePair> objNameValuePairs = new ArrayList<NameValuePair>();
+            objNameValuePairs.add(new BasicNameValuePair("isAdd","true"));//set true ที่ส่งไปใช้ใน php
+            objNameValuePairs.add(new BasicNameValuePair("Officer", officerString));
+            objNameValuePairs.add(new BasicNameValuePair("Desk", deskString));
+            objNameValuePairs.add(new BasicNameValuePair("Food", foodString));
+            objNameValuePairs.add(new BasicNameValuePair("Item", itemString));
+
+            //เชื่อมต่อ Protocol
+            HttpClient objHttpClient = new DefaultHttpClient();
+            HttpPost objHttpPost = new HttpPost("http://swiftcodingthai.com/baac/php_add_data_restaurant.php");
+            objHttpPost.setEntity(new UrlEncodedFormEntity(objNameValuePairs, "UTF-8"));
+            objHttpClient.execute(objHttpPost);
+
+            Toast.makeText(OrderActivity.this, "Update Order Successful", Toast.LENGTH_SHORT).show();
+
+        } catch (Exception e) {
+            Toast.makeText(OrderActivity.this, "Cannot update Order to mySQL", Toast.LENGTH_LONG).show();
+
+        }
     }
 
     private void createSpinner() {
